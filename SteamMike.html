@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SteamMike - Advanced AI Lab</title>
+    <style>
+        :root {
+            --steam-blue: #66c0f4;
+            --steam-dark: #171d24;
+            --steam-bg: #1b2838;
+            --steam-text: #c7d5e0;
+            --steam-green: #bbee66;
+            --steam-red: #e64d4d;
+        }
+
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--steam-bg); color: var(--steam-text); margin: 0; padding: 0; overflow: hidden; }
+        header { background: var(--steam-dark); padding: 15px 5%; border-bottom: 3px solid var(--steam-blue); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .main-container { max-width: 1300px; margin: 30px auto; padding: 0 20px; height: calc(100vh - 100px); overflow-y: auto; }
+
+        /* Login Forzoso */
+        #overlay-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--steam-bg); z-index: 5000; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: var(--steam-dark); padding: 40px; border-radius: 8px; border: 2px solid var(--steam-blue); text-align: center; width: 350px; }
+
+        /* Catálogo */
+        .grid-juegos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .card-juego { background: #171d24; border-radius: 4px; border: 1px solid #3d6a8d; overflow: hidden; transition: 0.3s; cursor: pointer; }
+        .card-juego:hover { border-color: var(--steam-blue); transform: scale(1.02); }
+        .img-box { width: 100%; height: 180px; background: #000; }
+        .img-box img { width: 100%; height: 100%; object-fit: cover; }
+        .info-box { padding: 12px; }
+
+        /* Modales */
+        #modal-producto, #modal-usuarios { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: #171d24; padding: 20px; border-radius: 8px; border: 2px solid var(--steam-blue); width: 560px; text-align: center; position: relative; }
+        .video-wrapper { width: 100%; height: 315px; background: #000; margin-bottom: 15px; border-radius: 4px; overflow: hidden; }
+
+        /* Barra Lateral Usuarios */
+        #user-sidebar { position: fixed; right: -400px; top: 0; width: 350px; height: 100%; background: #171d24; border-left: 2px solid var(--steam-blue); transition: 0.4s; z-index: 1001; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        #user-sidebar.active { right: 0; }
+        .user-list { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
+        .user-item { background: #1b2838; padding: 10px; margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--steam-blue); }
+
+        /* Carrito */
+        #cart-sidebar { position: fixed; right: -400px; top: 0; width: 350px; height: 100%; background: #171d24; border-left: 2px solid var(--steam-blue); transition: 0.4s; z-index: 1000; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        #cart-sidebar.active { right: 0; }
+        
+        /* CHAT */
+        .area-chat { background: #f0f0f0; color: #333; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        #chat-display { height: 180px; overflow-y: auto; background: white; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+        .msg { padding: 8px 15px; border-radius: 18px; max-width: 75%; font-size: 0.9em; }
+        .msg-user { align-self: flex-end; background: var(--steam-blue); color: white; }
+        .msg-bot { align-self: flex-start; background: #e9e9e9; color: #222; border: 1px solid #ddd; }
+        
+        .btn { background: var(--steam-blue); color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        input[type="text"], input[type="number"] { padding: 10px; border-radius: 4px; border: 1px solid #3d6a8d; background: #1b2838; color: white; width: 80%; }
+    </style>
+</head>
+<body onload="init()">
+
+    <div id="overlay-login">
+        <div class="login-box">
+            <h2 style="color: var(--steam-blue);">BIENVENIDO A STEAMMIKE</h2>
+            <p>Por favor, regístrate para entrar:</p>
+            <input type="text" id="reg-nombre" placeholder="Tu nombre o Nickname">
+            <br><br>
+            <button class="btn" style="width: 85%;" onclick="registrarUsuario()">ENTRAR</button>
+        </div>
+    </div>
+
+    <div id="user-sidebar">
+        <h3>👥 Usuarios Registrados</h3>
+        <div id="user-list" class="user-list"></div>
+        <button class="btn" style="background:#555" onclick="toggleUsers()">CERRAR</button>
+    </div>
+
+    <div id="modal-producto">
+        <div class="modal-content">
+            <div id="video-wrapper" class="video-wrapper"></div>
+            <h2 id="m-titulo" style="margin-top:0;"></h2>
+            <p id="m-precio" style="color:var(--steam-green); font-weight:bold;"></p>
+            <p>Stock: <span id="m-stock"></span></p>
+            <input type="number" id="m-cant" value="1" min="1" style="width: 60px; margin-bottom: 15px;">
+            <br>
+            <button class="btn" onclick="add()">Añadir al Carrito</button>
+            <button class="btn" style="background:#555" onclick="closeM()">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="cart-sidebar">
+        <h3>🛒 Tu Carrito</h3>
+        <div id="cart-items" style="flex-grow:1; overflow-y:auto;"></div>
+        <p>Total: <span id="cart-total" style="color:var(--steam-green); font-weight:bold;">$0.00</span></p>
+        <button class="btn" style="width:100%; background:var(--steam-green); color:black;" onclick="pay()">PAGAR</button>
+        <button class="btn" style="width:100%; margin-top:5px; background:#444;" onclick="toggleC()">VOLVER</button>
+    </div>
+
+    <header>
+        <div>
+            <h1 style="display:inline; margin-right: 20px;">SteamMike AI</h1>
+            <span id="txt-bienvenida" style="color: var(--steam-green); font-weight: bold;"></span>
+        </div>
+        <div>
+            <button class="btn" onclick="toggleUsers()" style="background: #3d6a8d;">👥 Usuarios</button>
+            <button class="btn" onclick="toggleC()">🛒 Carrito (<span id="cart-count">0</span>)</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="grid-juegos" id="grid"></div>
+
+        <div class="area-chat">
+            <h4 style="margin:0 0 10px 0;">MikeBot 3.0 (Smart AI)</h4>
+            <div id="chat-display"></div>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chat-input" placeholder="Escribe un mensaje..." style="background:white; color:#333;" onkeypress="if(event.key === 'Enter') handleChat()">
+                <button class="btn" onclick="handleChat()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const db = [
+            { id: 0, n: "Borderlands 3", p: 30, s: 5, img: "https://img.asmedia.epimg.net/resizer/v2/KCBZR3TQXRPTPK3WWHZZNIBA4I.jpg?auth=320bb9b1132493e0dc27cc129bb39202867d7b5e57000dbb930d423371488b85&width=1200&height=675&smart=true", vid: "DU6wWn-oVpU" },
+            { id: 1, n: "R.E.P.O.", p: 20, s: 8, img: "https://i.pinimg.com/236x/41/fc/cb/41fccbc3e859a266af8dccffa1c52117.jpg", vid: "ZkN0LdB4iAQ" },
+            { id: 2, n: "Terraria", p: 10, s: 15, img: "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/105600/header.jpg", vid: "J-ykK1ACzBI" },
+            { id: 3, n: "Minecraft Dungeons", p: 20, s: 4, img: "https://assets.nintendo.com/image/upload/c_fill,w_1200/q_auto:best/f_auto/dpr_2.0/store/software/switch/70010000021401/59686225dba24636062a421593effdb4fe136bbfd67b11c621fe92ed36a65734", vid: "eoRd6rT63uA" },
+            { id: 4, n: "Halo Infinite", p: 40, s: 6, img: "https://wpassets.halowaypoint.com/wp-content/2021/12/HaloInfinite_CampaignKeyArt_CLEAN_1920x1080.jpg", vid: "EqG1tCWbZNQ" }
+        ];
+
+        let cart = [];
+        let cur = null;
+        let usuarios = JSON.parse(localStorage.getItem('steamUsers')) || [];
+        let currentUser = "";
+
+        function init() {
+            renderGrid();
+            renderUsers();
+        }
+
+        // --- SISTEMA DE USUARIOS ---
+        function registrarUsuario() {
+            const nom = document.getElementById('reg-nombre').value.trim();
+            if(!nom) return alert("Debes ingresar un nombre.");
+            
+            currentUser = nom;
+            if(!usuarios.includes(nom)) {
+                usuarios.push(nom);
+                localStorage.setItem('steamUsers', JSON.stringify(usuarios));
+            }
+            
+            document.getElementById('overlay-login').style.display = 'none';
+            document.getElementById('txt-bienvenida').innerText = `¡Bienvenido, ${currentUser}!`;
+            botReply(`¡Hola ${currentUser}! Soy MikeBot. Estoy aquí para ayudarte a elegir tu próximo juego. ¿Qué buscas hoy?`);
+            renderUsers();
+        }
+
+        function renderUsers() {
+            const list = document.getElementById('user-list');
+            list.innerHTML = usuarios.map((u, i) => `
+                <div class="user-item">
+                    <span>${u}</span>
+                    <div>
+                        <button class="btn" style="background: orange; padding: 2px 5px;" onclick="editarUsuario(${i})">✎</button>
+                        <button class="btn" style="background: var(--steam-red); padding: 2px 5px;" onclick="borrarUsuario(${i})">X</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function borrarUsuario(idx) {
+            if(confirm("¿Seguro que quieres borrar a este usuario?")) {
+                usuarios.splice(idx, 1);
+                localStorage.setItem('steamUsers', JSON.stringify(usuarios));
+                renderUsers();
+            }
+        }
+
+        function editarUsuario(idx) {
+            const nuevo = prompt("Nuevo nombre para " + usuarios[idx] + ":");
+            if(nuevo && nuevo.trim()) {
+                usuarios[idx] = nuevo.trim();
+                localStorage.setItem('steamUsers', JSON.stringify(usuarios));
+                renderUsers();
+            }
+        }
+
+        function toggleUsers() { document.getElementById('user-sidebar').classList.toggle('active'); }
+
+        // --- TIENDA ---
+        function renderGrid() {
+            document.getElementById('grid').innerHTML = db.map(j => `
+                <div class="card-juego" onclick="openM(${j.id})">
+                    <div class="img-box"><img src="${j.img}"></div>
+                    <div class="info-box"><strong>${j.n}</strong><br><span style="color:var(--steam-green)">$${j.p}</span></div>
+                </div>
+            `).join('');
+        }
+
+        function openM(id) {
+            cur = db.find(j => j.id === id);
+            const vWrapper = document.getElementById('video-wrapper');
+            vWrapper.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${cur.vid}" frameborder="0" allowfullscreen></iframe>`;
+            document.getElementById('m-titulo').innerText = cur.n;
+            document.getElementById('m-precio').innerText = `$${cur.p}.00`;
+            document.getElementById('m-stock').innerText = cur.s;
+            document.getElementById('modal-producto').style.display = 'flex';
+        }
+
+        function closeM() { 
+            document.getElementById('video-wrapper').innerHTML = ""; 
+            document.getElementById('modal-producto').style.display = 'none'; 
+        }
+
+        function add() {
+            const c = parseInt(document.getElementById('m-cant').value);
+            if(c > cur.s || c <= 0) return alert("Stock insuficiente.");
+            cur.s -= c;
+            for(let i=0; i<c; i++) cart.push({...cur});
+            updateUI();
+            closeM();
+        }
+
+        function updateUI() {
+            document.getElementById('cart-count').innerText = cart.length;
+            const total = cart.reduce((a, b) => a + b.p, 0);
+            document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
+            document.getElementById('cart-items').innerHTML = cart.map((j, i) => `
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px; background:#1b2838; padding:5px;">
+                    <span>${j.n}</span>
+                    <button class="btn" style="background:red; padding:2px 5px;" onclick="remove(${i})">X</button>
+                </div>
+            `).join('');
+        }
+
+        function remove(i) {
+            db.find(j => j.id === cart[i].id).s += 1;
+            cart.splice(i, 1);
+            updateUI();
+        }
+
+        function toggleC() { document.getElementById('cart-sidebar').classList.toggle('active'); }
+        function pay() { if(cart.length>0) { alert("¡Compra realizada!"); cart=[]; updateUI(); toggleC(); } }
+
+        // --- LÓGICA DE CHAT MEJORADA ---
+        function handleChat() {
+            const input = document.getElementById('chat-input');
+            const txt = input.value.trim();
+            if(!txt) return;
+            
+            addMsg(txt, 'user');
+            input.value = "";
+            
+            setTimeout(() => {
+                const query = txt.toLowerCase();
+                let r = "";
+
+                // Saludos
+                if (query.match(/hola|buen|quetal|onda/)) {
+                    r = `¡Hola de nuevo, ${currentUser}! ¿En qué puedo ayudarte hoy? ¿Buscas algún juego en especial?`;
+                } 
+                // Juegos baratos
+                else if (query.includes("barato") || query.includes("económico") || query.includes("oferta")) {
+                    const low = [...db].sort((a,b) => a.p - b.p)[0];
+                    r = `Si buscas ahorrar, el ${low.n} es tu mejor opción, cuesta solo $${low.p}.`;
+                }
+                // Juegos caros
+                else if (query.includes("caro") || query.includes("mejor")) {
+                    const high = [...db].sort((a,b) => b.p - a.p)[0];
+                    r = `El juego premium del momento es ${high.n}, con un valor de $${high.p}. ¡Vale cada centavo!`;
+                }
+                // Stock
+                else if (query.includes("stock") || query.includes("quedan") || query.includes("disponible")) {
+                    let stockMsg = "Aquí tienes la disponibilidad: ";
+                    db.forEach(j => stockMsg += `${j.n} (${j.s}), `);
+                    r = stockMsg.slice(0, -2) + ".";
+                }
+                // Insultos o mala actitud (Filtro amigable)
+                else if (query.match(/tonto|estupido|mierda|asco|malo/)) {
+                    r = "¡Oye! Solo soy un bot haciendo mi trabajo. Vamos a calmarnos y mejor hablemos de videojuegos.";
+                }
+                // Recomendación aleatoria
+                else if (query.includes("recomienda") || query.includes("cual compro") || query.includes("ayuda")) {
+                    const randomJ = db[Math.floor(Math.random() * db.length)];
+                    r = `Te recomiendo totalmente ${randomJ.n}. Tiene un video genial, ¡deberías verlo!`;
+                }
+                // Despedidas
+                else if (query.match(/adios|bye|chao|luego|gracias/)) {
+                    r = `¡Un placer ayudarte, ${currentUser}! Aquí estaré si necesitas algo más. ¡Disfruta el vicio!`;
+                }
+                // ¿Qué eres?
+                else if (query.includes("quien eres") || query.includes("que eres")) {
+                    r = "Soy MikeBot 3.0, el asistente de IA de esta tienda. Mi misión es que no te quedes sin jugar.";
+                }
+                // Dudas sobre videos
+                else if (query.includes("video") || query.includes("trailer")) {
+                    r = "¡Claro! Haz clic en cualquier imagen de la cuadrícula y se abrirá el tráiler oficial del juego.";
+                }
+                // No entiende
+                else {
+                    r = "No estoy seguro de entenderte, pero puedo decirte cuáles son los juegos más baratos, cuáles tienen stock o recomendarte uno al azar.";
+                }
+
+                botReply(r);
+            }, 600);
+        }
+
+        function addMsg(t, type) {
+            const d = document.getElementById('chat-display');
+            d.innerHTML += `<div class="msg msg-${type}">${t}</div>`;
+            d.scrollTop = d.scrollHeight;
+        }
+
+        function botReply(t) { addMsg(t, 'bot'); }
+    </script>
+</body>
+</html>
